@@ -1,0 +1,58 @@
+menu "Lock Configuration"
+
+    choice LOCK_GPIO
+        prompt "Lock GPIO Pin"
+        default LOCK_GPIO_18
+        help
+            Select GPIO pin for lock motor
+
+        #config LOCK_GPIO_16
+         #  bool "GPIO 16"
+        #config LOCK_GPIO_17
+         #   bool "GPIO 17"
+        config LOCK_GPIO_18
+            bool "GPIO 18"
+        config LOCK_GPIO_19
+            bool "GPIO 19"
+        config LOCK_GPIO_21
+            bool "GPIO 21"
+        config LOCK_GPIO_22
+            bool "GPIO 22"
+        config LOCK_GPIO_23
+            bool "GPIO 23"
+        config LOCK_GPIO_25
+            bool "GPIO 25"
+        config LOCK_GPIO_26
+            bool "GPIO 26"
+        config LOCK_GPIO_27
+            bool "GPIO 27"
+    endchoice
+
+    config LOCK_GPIO_NUM
+        int
+        default 16 if LOCK_GPIO_16
+        default 17 if LOCK_GPIO_17
+        default 18 if LOCK_GPIO_18
+        default 19 if LOCK_GPIO_19
+        default 21 if LOCK_GPIO_21
+        default 22 if LOCK_GPIO_22
+        default 23 if LOCK_GPIO_23
+        default 25 if LOCK_GPIO_25
+        default 26 if LOCK_GPIO_26
+        default 27 if LOCK_GPIO_27
+
+    config LOCK_OPEN_ANGLE
+        int "Lock Open Angle (degrees)"
+        range 0 180
+        default 90
+        help
+            angle to pull lock open
+
+    config LOCK_CLOSE_ANGLE
+        int "Lock Close Angle (degrees)" 
+        range 0 180
+        default 0
+        help
+            angle to release lock closed
+
+endmenu

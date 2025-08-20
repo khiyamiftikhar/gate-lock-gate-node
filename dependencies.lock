@@ -1,0 +1,48 @@
+dependencies:
+  discovery_service:
+    dependencies: []
+    source:
+      path: E:\vscodeespidf\projectworkspace\components-new\esp-now\discovery_service
+      type: local
+    version: '*'
+  esp-now-comm:
+    dependencies: []
+    source:
+      path: E:\vscodeespidf\projectworkspace\components-new\esp-now\esp-now-comm
+      type: local
+    version: '*'
+  espressif/servo:
+    component_hash: 309c787e48224255fad458cfd9ab86ea53f0fdad1c5e4f6f0c50309990b17108
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.1.0
+  idf:
+    source:
+      type: idf
+    version: 5.4.1
+  message_service:
+    dependencies: []
+    source:
+      path: E:\vscodeespidf\projectworkspace\components-new\esp-now\message_service
+      type: local
+    version: '*'
+  peer-registry:
+    dependencies: []
+    source:
+      path: E:\vscodeespidf\projectworkspace\components-new\esp-now\peer-registry
+      type: local
+    version: '*'
+direct_dependencies:
+- discovery_service
+- esp-now-comm
+- espressif/servo
+- message_service
+- peer-registry
+manifest_hash: 34a0d03f551e48205c0bf77247ae00c409e586e6d8a59c4fc8742fefbced0906
+target: esp32
+version: 2.0.0
