@@ -93,6 +93,7 @@ void app_main(void)
     ESP_LOGI(TAG,"check in main %d",peer_registry->peer_registry_exists_by_mac(home_node_mac));
 
     peer_registry->peer_registry_add_peer(HOME_DEVICE_ID,home_node_mac,"homenode");
+    espnow_transport->esp_now_transport_add_peer(home_node_mac);
 
     ESP_LOGI(TAG,"peer registry init done");
 
