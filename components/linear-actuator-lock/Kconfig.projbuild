@@ -1,0 +1,14 @@
+menu "Linear Lock Configuration"
+
+    config MOTOR_DRIVER_D0
+        int "MOTOR DRIVER D0"
+        default 18
+        help
+            Select D0 pin of the motor driver
+
+    config MOTOR_DRIVER_D1
+        int "MOTOR DRIVER D1"
+        default 19
+        help
+            Select D1 pin of the motor driver
+endmenu

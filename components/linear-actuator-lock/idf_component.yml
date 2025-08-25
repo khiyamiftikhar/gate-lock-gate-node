@@ -1,0 +1,4 @@
+dependencies:
+  message_service:
+    path: E:/vscodeespidf/projectworkspace/components-new/esp-now/message_service
+  
