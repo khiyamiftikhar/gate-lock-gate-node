@@ -10,7 +10,7 @@
 #include "discovery_timer.h"
 #include "peer_registry.h"
 #include "gate_node.h"
-#include "lock_control.h"
+#include "linear_actuator.h"
 
 
 
@@ -161,11 +161,10 @@ void app_main(void)
     //The remaining callbacks of the esp_now_comm to the deserving targets
     //So now esp_now_comm will invoke methods inside the message service sources
     
-    lock_config_t lock_config={.lock_close_angle=0,
-                                .lock_open_angle=90
-
+    linear_lock_config_t linear_lock_config={.unlock_hold_duration=2000,    //ms
+            
     };
-    gate_node_lock_interface_t* lock=lock_create(&lock_config);
+    gate_node_lock_interface_t* lock=linear_lock_create(&linear_lock_config);
     
     /*
     lock.get_lock_status=get_lock_status;
