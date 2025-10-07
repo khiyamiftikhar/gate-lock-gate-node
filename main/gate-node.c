@@ -6,6 +6,8 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "softap_service.h"
+#include "softap_event_adapter.h"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_now_transport.h"
@@ -14,8 +16,9 @@
 #include "peer_registry.h"
 #include "gate_node.h"
 #include "linear_actuator.h"
-
-
+#include "system_context.h"
+#include "exception_handler.h"
+#include "routine_event_handler.h"
 
 
 
@@ -54,24 +57,6 @@ static lock_system_lock_status_t get_lock_status(){
 
 
 /* WiFi should start before using ESPNOW */
-static void wifi_init(void)
-{
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_start());
-    ESP_ERROR_CHECK( esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
-    uint8_t mac[6];
-    esp_wifi_get_mac(ESP_IF_WIFI_STA, mac);
-    ESP_LOGI(TAG, "Device Mac is " MACSTR, MAC2STR(mac));
-
-#if ESPNOW_ENABLE_LONG_RANGE
-    ESP_ERROR_CHECK( esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N|WIFI_PROTOCOL_LR) );
-#endif
-}
 
 static void esp_flash_init(){
      esp_err_t ret = nvs_flash_init();
@@ -83,9 +68,11 @@ static void esp_flash_init(){
 
 }
 
+/// @brief 
+/// @param total_devices_found 
 static void discovery_completion_handler(uint8_t total_devices_found){
 
-     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     BaseType_t notify_result;
     
     uint32_t result=total_devices_found;
@@ -128,13 +115,19 @@ static void restart_discovery_with_new_channel(){
 
 }
 
+
+
 void app_main(void)
 {
     main_task_handle = xTaskGetCurrentTaskHandle();
     
-    esp_flash_init();
-    wifi_init();
     
+    
+    esp_flash_init();
+    event_context_init();
+    wifi_init_softap();
+    softap_event_adapter_init();
+
 
     esp_now_transport_config_t transport_config={.wifi_channel=ESPNOW_CHANNEL};
 

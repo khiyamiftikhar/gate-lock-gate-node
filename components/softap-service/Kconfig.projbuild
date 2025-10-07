@@ -1,0 +1,12 @@
+
+menu "Gate Node SoftAP Network Configuration"
+    config AP_STATIC_IP
+        string "SoftAP Static IP Address"
+        default "192.168.4.1"
+    config AP_NETMASK
+        string "SoftAP Netmask"
+        default "255.255.255.0"
+    config AP_GATEWAY
+        string "SoftAP Gateway"
+        default "192.168.4.1"
+endmenu
