@@ -7,8 +7,8 @@ static const char *TAG = "softap_adapter";
 static esp_event_loop_handle_t* main_loop=NULL;
 static esp_event_loop_handle_t* exception_loop=NULL;
 
-ESP_EVENT_DEFINE_BASE(SOFTAP_EVENT_BASE);
-ESP_EVENT_DEFINE_BASE(SOFTAP_EXCEPTION_BASE);
+//ESP_EVENT_DEFINE_BASE(SOFTAP_EVENT_BASE);
+//ESP_EVENT_DEFINE_BASE(SOFTAP_EXCEPTION_BASE);
 
 /* This is called from your softap_init() or similar to give adapter the context */
 esp_err_t softap_event_adapter_init(){
