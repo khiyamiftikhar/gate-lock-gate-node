@@ -9,6 +9,7 @@ void routine_event_handler (void *handler_arg,
                             int32_t id,
                             void *event_data);
 
+esp_err_t routine_handler_init();
 
 
 #endif
