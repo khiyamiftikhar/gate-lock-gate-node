@@ -22,9 +22,9 @@
 #include "lwip/inet.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "softap_event_adapter.h"
+#include "event_system_adapter.h"
 #include "softap_service.h"
-#include "system_context.h"
+//#include "system_context.h"
 /* -------------------- Configuration -------------------- */
 #define WIFI_AP_SSID     "ESP32_Config"
 #define WIFI_AP_PASS     "esp32pass"   // set empty for open AP
@@ -35,6 +35,9 @@
 /* ------------------------------------------------------- */
 
 static const char *TAG = "softap";
+
+//This macro defined in the event_system_adapter creates custom apis with this name appended
+DEFINE_EVENT_ADAPTER(SOFTAP_SERVICE);
 
 /* ---------- Local storage for the created netifs (returned to caller via ref) ---------- */
 typedef struct {
@@ -67,18 +70,22 @@ static void softap_wifi_event_handler(void *arg,
 
 
 
-esp_err_t set_wifi_channel(uint8_t channel){
+esp_err_t wifi_set_channel(uint8_t channel){
 
 
     esp_err_t err = esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "esp_wifi_set_channel failed: %s", esp_err_to_name(err));
-            softap_post_exception(SOFTAP_EXCP_AP_CHANNEL_FAIL,(void*)&err,sizeof(esp_err_t));
+            SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_AP_CHANNEL_FAIL,(void*)&err,sizeof(esp_err_t));
             return ESP_FAIL;
         }
     return ESP_OK;
 }
 
+
+esp_err_t wifi_stop(){
+    return esp_wifi_stop();
+}
 /*
  * Initialize SoftAP while preserving STA (for ESP-NOW).
  *
@@ -87,19 +94,19 @@ esp_err_t set_wifi_channel(uint8_t channel){
  *
  * Returns ESP_OK on success; on recoverable failures returns error *and* posts an exception event.
  */
-esp_err_t wifi_init_softap()
+esp_err_t wifi_init_softap(uint8_t channel)
 {
     
     esp_err_t err=0;
     //assert(ctx != NULL);
 
     /* ---------- CRITICAL: Base initialization ---------- */
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    //ESP_ERROR_CHECK(esp_netif_init());
+    //ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     /* ---------- CRITICAL: Create Wi-Fi driver ---------- */
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    //wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    //ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     /* ---------- CRITICAL: Create network interfaces ---------- */
     softap_netifs.sta_netif = esp_netif_create_default_wifi_sta();
@@ -109,8 +116,8 @@ esp_err_t wifi_init_softap()
 
 
     //Saving to the system context data structure
-    set_ap_netif_obj(softap_netifs.sta_netif);
-    set_station_netif_obj(softap_netifs.sta_netif);
+    //set_ap_netif_obj(softap_netifs.sta_netif);
+    //set_station_netif_obj(softap_netifs.sta_netif);
     
 
     /* ---------- CRITICAL: Ensure AP+STA mode ---------- */
@@ -121,7 +128,7 @@ esp_err_t wifi_init_softap()
         .ap = {
             .ssid = WIFI_AP_SSID,
             .ssid_len = (uint8_t)strlen(WIFI_AP_SSID),
-            .channel = WIFI_AP_CHANNEL,
+            .channel = channel,     //Passed as parameter, got after finding the peer at this channel
             .password = WIFI_AP_PASS,
             .max_connection = WIFI_AP_MAX_CONN,
             .authmode = WIFI_AUTH_WPA_WPA2_PSK
@@ -133,7 +140,7 @@ esp_err_t wifi_init_softap()
     err = esp_wifi_set_config(WIFI_IF_AP, &ap_cfg);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_wifi_set_config(AP) failed: %s", esp_err_to_name(err));
-        softap_post_exception(SOFTAP_EXCP_CONFIG_FAIL, (void*)&err,0);
+        SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_CONFIG_FAIL, (void*)&err,0);
         return err;  // AP cannot continue
     }
 
@@ -142,28 +149,28 @@ esp_err_t wifi_init_softap()
 
     /* ---------- OPTIONAL: Set channel for ESP-NOW ---------- */
     
-    set_wifi_channel(1);        //just to start with, channel 1
+    //wifi_set_channel(1);        //just to start with, channel 1
     /* ---------- OPTIONAL: Assign static IP (recoverable) ---------- */
     esp_netif_ip_info_t ip_info;
 
     // Parse static IP
     if (!inet_aton(CONFIG_AP_STATIC_IP, &ip_info.ip)) {
         ESP_LOGE(TAG, "Invalid AP_STATIC_IP format in Kconfig: %s", CONFIG_AP_STATIC_IP);
-        softap_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
+        SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
         return ESP_FAIL;   // <--- stop here
     }
 
     // Parse gateway
     if (!inet_aton(CONFIG_AP_GATEWAY, &ip_info.gw)) {
         ESP_LOGE(TAG, "Invalid AP_GATEWAY format in Kconfig: %s", CONFIG_AP_GATEWAY);
-        softap_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
+        SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
         return ESP_FAIL;   // <--- stop here
     }
 
     // Parse netmask
     if (!inet_aton(CONFIG_AP_NETMASK, &ip_info.netmask)) {
         ESP_LOGE(TAG, "Invalid AP_NETMASK format in Kconfig: %s", CONFIG_AP_NETMASK);
-        softap_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
+        SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
         return ESP_FAIL;   // <--- stop here
     }
 
@@ -172,19 +179,19 @@ esp_err_t wifi_init_softap()
 
     err = esp_netif_dhcps_stop(softap_netifs.ap_netif);
     if (err != ESP_OK) {
-        softap_post_exception(SOFTAP_EXCP_DNS_FAIL, NULL, 0);
+        SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_DNS_FAIL, NULL, 0);
         return err;  // <--- stop
     }
 
     err = esp_netif_set_ip_info(softap_netifs.ap_netif, &ip_info);
     if (err != ESP_OK) {
-        softap_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
+        SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_IPCFG_FAIL, NULL, 0);
         return err;  // <--- stop
     }
 
     err = esp_netif_dhcps_start(softap_netifs.ap_netif);
     if (err != ESP_OK) {
-        softap_post_exception(SOFTAP_EXCP_DHCP_FAIL, NULL, 0);
+        SOFTAP_SERVICE_post_exception(SOFTAP_EXCP_DHCP_FAIL, NULL, 0);
         return err;  // <--- stop
     }
 
@@ -200,6 +207,29 @@ esp_err_t wifi_init_softap()
     return ESP_OK;
 
 }
+
+
+/// @brief Initial station init 
+/// @param  
+void wifi_station_init(void)
+{
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_ERROR_CHECK( esp_wifi_start());
+    ESP_ERROR_CHECK( esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
+    uint8_t mac[6];
+    esp_wifi_get_mac(ESP_IF_WIFI_STA, mac);
+    ESP_LOGI(TAG, "Device Mac is " MACSTR, MAC2STR(mac));
+
+#if ESPNOW_ENABLE_LONG_RANGE
+    ESP_ERROR_CHECK( esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N|WIFI_PROTOCOL_LR) );
+#endif
+}
+
 
 /* ---------------- Example app_main usage (illustrative) ----------------
 void app_main(void)
