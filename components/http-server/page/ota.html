@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 OTA Update</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard active">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3>ESP32 Panel</h3>
+            </div>
+            <div class="menu-item" data-page="home">
+                <span>🏠</span>
+                <span>Home</span>
+            </div>
+            <div class="menu-item active" data-page="ota">
+                <span>⚡</span>
+                <span>OTA Update</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="content-header">
+                <h2>OTA Update</h2>
+                <button class="logout-btn" id="logoutBtn">Logout</button>
+            </div>
+
+            <div class="ota-container">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">Firmware Update (OTA)</h3>
+                
+                <div class="file-input-wrapper" id="fileInputWrapper">
+                    <input type="file" id="firmwareFile" accept=".bin">
+                    <div>
+                        <p style="font-size: 18px; margin-bottom: 10px;">📁</p>
+                        <p style="color: #666;">Click to browse for .bin file</p>
+                        <p style="color: #999; font-size: 12px; margin-top: 5px;">Maximum file size: 2MB</p>
+                    </div>
+                </div>
+
+                <div class="file-info" id="fileInfo">
+                    <strong>Selected File:</strong>
+                    <p id="fileName"></p>
+                    <p id="fileSize"></p>
+                </div>
+
+                <button class="btn" id="updateBtn" disabled>Update Firmware</button>
+
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill">0%</div>
+                    </div>
+                    <p style="text-align: center; color: #666;" id="progressText">Preparing upload...</p>
+                </div>
+
+                <div id="statusMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="ota.js"></script>
+</body>
+</html>
