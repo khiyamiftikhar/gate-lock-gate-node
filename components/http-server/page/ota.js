@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/check-auth', {
                 method: 'GET',
                 headers: {
-                    'Authorization': getAuthToken()
+                    'Authorization': `Bearer ${getAuthToken()}`
                 }
             });
             
@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await fetch('/logout', {
                     method: 'POST',
                     headers: {
-                        'Authorization': getAuthToken()
+                        'Authorization': `Bearer ${getAuthToken()}`
                     }
                 });
             } catch (error) {
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/ota/complete', {
                 method: 'POST',
                 headers: {
-                    'Authorization': getAuthToken()
+                    'Authorization': `Bearer ${getAuthToken()}`
                 }
             });
     
