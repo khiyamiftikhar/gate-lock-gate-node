@@ -109,6 +109,9 @@ static bool validate_token(const char *token)
     //time_t now = time(NULL);
 
     for (int i = 0; i < MAX_USERS; ++i) {
+
+        ESP_LOGI(TAG, "comparison %d",strcmp(current_sessions[i].token, token));
+        ESP_LOGI(TAG,"saved token %s", current_sessions[i].token);
         if (current_sessions[i].active &&
             strcmp(current_sessions[i].token, token) == 0) {
 
@@ -120,6 +123,7 @@ static bool validate_token(const char *token)
 
             // update last activity
             //current_sessions[i].last_activity = now;
+            ESP_LOGI(TAG,"match found");
             return true;
         }
     }
@@ -194,6 +198,7 @@ static esp_err_t auth_handler(httpd_req_t *req)
 
     for (int i = 0; i < MAX_USERS; ++i) {
         if (!current_sessions[i].active) {
+            ESP_LOGI(TAG,"saving token");
             current_sessions[i].active = true;
             //strncpy(current_sessions[i].username, username, sizeof(current_sessions[i].username));
             strncpy(current_sessions[i].token, token, sizeof(current_sessions[i].token));
@@ -229,7 +234,7 @@ static esp_err_t auth_handler(httpd_req_t *req)
         free(out);
         cJSON_Delete(resp);
         cJSON_Delete(root);
-        current_sessions[0].active=true;
+        //current_sessions[0].active=true;
         ESP_LOGI(TAG, "User '%s' logged in, issued token (len %d)", username, (int)strlen(token));
         return ESP_OK;
     } else {
@@ -256,9 +261,10 @@ static esp_err_t logout_handler(httpd_req_t *req)
 {
     char token[64];
     if (httpd_req_get_hdr_value_str(req, "Authorization", token, sizeof(token)) == ESP_OK) {
-        if (current_sessions[0].active &&
-            strcmp(token, current_sessions[0].token) == 0)
-        {
+        ESP_LOGI(TAG,"main if %s",token);
+        char *p = strstr(token, "Bearer ");
+        if (p && validate_token(p + 7)){
+            ESP_LOGI(TAG,"token matched");
             current_sessions[0].active = false;
             memset(current_sessions, 0, sizeof(current_sessions));
             httpd_resp_sendstr(req, "{\"result\":\"logged_out\"}");
@@ -271,9 +277,53 @@ static esp_err_t logout_handler(httpd_req_t *req)
 }
 
 
+static esp_err_t logged_in_checked(httpd_req_t *req){
+    //Logged in check
+    char auth_header[128] = {0};
+
+    if (httpd_req_get_hdr_value_str(req, "Authorization", auth_header, sizeof(auth_header)) != ESP_OK) {
+        ESP_LOGI(TAG,"redirect Auth h");
+        return ESP_FAIL;//redirect_to_login(req);
+    }
+    ESP_LOGI(TAG, "Auth header: '%s'", auth_header);
+    // Expect header "Authorization: Bearer <token>"
+    char *p = strstr(auth_header, "Bearer ");
+    if (!p || !validate_token(p + 7)) {
+        ESP_LOGI(TAG,"redirect Bearer h");
+        return ESP_FAIL;//redirect_to_login(req);
+    }
+
+    return ESP_OK;
+}
+
+
+static esp_err_t check_auth_handler(httpd_req_t *req)
+{
+    // Reuse your existing check
+    if (logged_in_checked(req) != ESP_OK) {
+        // Return 401 Unauthorized (not redirect HTML, since it's JS calling)
+        httpd_resp_set_status(req, "401 Unauthorized");
+        httpd_resp_send(req, "Unauthorized", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    // If OK → send simple JSON response
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
+    return ESP_OK;
+}
+
+
 static esp_err_t file_upload_handler(httpd_req_t *req)
 {
+        
+    esp_err_t ret=logged_in_checked(req);
+
+    //ESP_LOGI(TAG,"logged status chhecked");
+    if(ret!=ESP_OK)
+        return ret;
     
+    //ESP_LOGI(TAG,"logged user");
     int received;
 
     char* recv_buf;
@@ -311,6 +361,9 @@ static esp_err_t file_upload_handler(httpd_req_t *req)
     // esp_event_post_to(ota_event_loop, OTA_EVENT_COMPLETE, NULL, 0, portMAX_DELAY);
 
     httpd_resp_sendstr(req, "Upload successful");
+
+    //Just for testing . this mustb be called by ota
+    xQueueSend(http_server.buffer_queue,&recv_buf,portMAX_DELAY);
     return ESP_OK;
 }
 
@@ -318,7 +371,7 @@ static esp_err_t file_upload_handler(httpd_req_t *req)
 
 
 //IT is using chunk send
-static esp_err_t http_server_send_page_resource(httpd_req_t *req,
+static esp_err_t http_server_send_html_resource(httpd_req_t *req,
                                                 const char *page_data,
                                                 size_t len)
 {
@@ -357,6 +410,45 @@ static esp_err_t http_server_send_page_resource(httpd_req_t *req,
     return httpd_resp_send_chunk(req, NULL, 0);
 }    
 
+//IT is using chunk send
+static esp_err_t http_server_send_js_resource(httpd_req_t *req,
+                                                const char *page_data,
+                                                size_t len)
+{
+ if (!req || !page_data) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+
+    
+    esp_err_t ret;
+
+    ret = httpd_resp_set_type(req, "application/javascript");
+    if (ret != ESP_OK) return ret;
+
+    ret = httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
+    if (ret != ESP_OK) return ret;
+
+    // Enable chunked encoding
+    //ret = httpd_resp_send_chunk(req, NULL, 0); // Start the response
+    //if (ret != ESP_OK) return ret;
+
+    const size_t chunk_size = 1024; // 1 KB chunks — safe size
+    for (size_t offset = 0; offset < len; offset += chunk_size) {
+        size_t this_chunk = MIN(chunk_size, len - offset);
+        ret = httpd_resp_send_chunk(req, page_data + offset, this_chunk);
+        if (ret != ESP_OK) {
+            httpd_resp_send_chunk(req, NULL, 0); // End response safely
+            return ret;
+        }
+
+        // yield to avoid starving other tasks
+        vTaskDelay(1);
+    }
+
+    // Indicate end of response
+    return httpd_resp_send_chunk(req, NULL, 0);
+}    
 
 
 
@@ -410,49 +502,29 @@ static esp_err_t login_html_handler(httpd_req_t* req){
     size_t len=login_html_end -login_html_start;
     ESP_LOGI(TAG,"login length %d",len);
     esp_err_t ret=0;
-    ret=http_server_send_page_resource(req,(const char*)login_html_start,len);
+    ret=http_server_send_html_resource(req,(const char*)login_html_start,len);
     return ret;
 }
 
 
 static esp_err_t dashboard_html_handler(httpd_req_t* req){
         
-    char auth_header[128] = {0};
-    if (httpd_req_get_hdr_value_str(req, "Authorization", auth_header, sizeof(auth_header)) != ESP_OK) {
-        return redirect_to_login(req);
-    }
-
-    // Expect header "Authorization: Bearer <token>"
-    char *p = strstr(auth_header, "Bearer ");
-    if (!p || !validate_token(p + 7)) {
-        return redirect_to_login(req);
-    }
     
     size_t len=dashboard_html_end - dashboard_html_start;
 
     esp_err_t ret=0;
-    ret=http_server_send_page_resource(req,(const char*)dashboard_html_start,len);
+    ret=http_server_send_html_resource(req,(const char*)dashboard_html_start,len);
     return ret;
 }
 static esp_err_t ota_html_handler(httpd_req_t* req){
         
-    char auth_header[128] = {0};
-    if (httpd_req_get_hdr_value_str(req, "Authorization", auth_header, sizeof(auth_header)) != ESP_OK) {
-        return redirect_to_login(req);
-    }
-
-    // Expect header "Authorization: Bearer <token>"
-    char *p = strstr(auth_header, "Bearer ");
-    if (!p || !validate_token(p + 7)) {
-        return redirect_to_login(req);
-    }
     
     size_t len=ota_html_end - ota_html_start;
 
 
 
     esp_err_t ret=0;
-    ret=http_server_send_page_resource(req,(const char*)ota_html_start,len);
+    ret=http_server_send_html_resource(req,(const char*)ota_html_start,len);
     return ret;
 }
 
@@ -464,25 +536,25 @@ static esp_err_t login_js_handler(httpd_req_t* req){
     size_t len=login_js_end -login_js_start;
 
     esp_err_t ret=0;
-    ret=http_server_send_page_resource(req,(const char*)login_js_start,len);
+    ret=http_server_send_js_resource(req,(const char*)login_js_start,len);
     return ret;
 }
 
 
 static esp_err_t dashboard_js_handler(httpd_req_t* req){
         
-    size_t len=dashboard_html_end - dashboard_html_start;
+    size_t len=dashboard_js_end - dashboard_js_start;
 
     esp_err_t ret=0;
-    ret=http_server_send_page_resource(req,(const char*)dashboard_html_start,len);
+    ret=http_server_send_js_resource(req,(const char*)dashboard_js_start,len);
     return ret;
 }
 static esp_err_t ota_js_handler(httpd_req_t* req){
         
-    size_t len=ota_html_end - ota_html_start;
+    size_t len=ota_js_end - ota_js_start;
 
     esp_err_t ret=0;
-    ret=http_server_send_page_resource(req,(const char*)ota_html_start,len);
+    ret=http_server_send_js_resource(req,(const char*)ota_js_start,len);
     return ret;
 }
 
@@ -496,6 +568,7 @@ esp_err_t http_server_init(http_server_config_t* config){
     //http_config.max_open_sockets = config->max_connections;
     http_config.uri_match_fn = httpd_uri_match_wildcard;
     http_config.server_port = config->port;
+    http_config.max_uri_handlers=13;
     ESP_LOGI(TAG, "Entered Server Init");
     http_server.buffer_queue=xQueueCreate(TOTAL_BUFFERS,sizeof(char*));
 
@@ -602,7 +675,7 @@ esp_err_t http_server_init(http_server_config_t* config){
     httpd_register_uri_handler(http_server.server_handle, &login_uri);
 
     httpd_uri_t ota_upload_uri = {
-        .uri      = "/upload",
+        .uri      = "/ota/upload",
         .method   = HTTP_POST,
         .handler  = file_upload_handler,
         .user_ctx = NULL
@@ -618,6 +691,15 @@ esp_err_t http_server_init(http_server_config_t* config){
         .user_ctx = NULL
     };
     httpd_register_uri_handler(http_server.server_handle, &logout_uri);
+
+
+    httpd_uri_t checkauth_uri = {
+        .uri      = "/check-auth",
+        .method   = HTTP_GET,
+        .handler  = check_auth_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(http_server.server_handle, &checkauth_uri);
 
 
     
