@@ -3,9 +3,41 @@ const LOCAL_TESTING = false; // ⚠️ Always false in production
 const loginForm = document.getElementById('loginForm');
 const loginError = document.getElementById('loginError');
 
-document.addEventListener('DOMContentLoaded', () => {
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check if already logged in
+    const token = getAuthToken();
+    if (token) {
+        const isValid = await checkAuthWithServer();
+        if (isValid) {
+            window.location.href = 'dashboard.html';
+            return; // Skip showing login form
+        }
+    }
+
+    // Otherwise, show login form
     loginForm.addEventListener('submit', handleLogin);
 });
+
+function getAuthToken() {
+    return sessionStorage.getItem('authToken');
+}
+
+// Check authentication with server (returns true/false)
+async function checkAuthWithServer() {
+    try {
+        const response = await fetch('/check-auth', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${getAuthToken()}`
+            }
+        });
+        return response.ok; // true if valid, false if not
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        return false;
+    }
+}
 
 async function handleLogin(e) {
     e.preventDefault();

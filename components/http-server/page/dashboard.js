@@ -3,7 +3,7 @@ const logoutBtn = document.getElementById('logoutBtn');
 const menuItems = document.querySelectorAll('.menu-item');
 
 // Configuration: Set to true for local testing, false for ESP32 production
-const LOCAL_TESTING = true;
+const LOCAL_TESTING = false;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,7 +27,7 @@ async function checkAuthWithServer() {
         const response = await fetch('/check-auth', {
             method: 'GET',
             headers: {
-                'Authorization': getAuthToken()
+                'Authorization': `Bearer ${getAuthToken()}`
             }
         });
         
@@ -61,7 +61,9 @@ async function handleLogout() {
         try {
             await fetch('/logout', {
                 method: 'POST',
-                headers: { 'Authorization': token }
+                //headers: { 'Authorization': token }
+                headers: {'Authorization': `Bearer ${getAuthToken()}`
+            }
             });
         } catch (err) {
             console.warn('Logout request failed:', err);
