@@ -142,9 +142,9 @@ static bool validate_token(const char *token)
         ESP_LOGI(TAG,"saved token %s", current_sessions[i].token);
         if (current_sessions[i].active &&
             strcmp(current_sessions[i].token, token) == 0) {
-
+            ESP_LOGI(TAG,"sess active");
             uint32_t current_ticks=xTaskGetTickCount()*portTICK_PERIOD_MS;
-            if ((current_ticks - current_sessions[i].last_activity) > 1800) {
+            if ((current_ticks - current_sessions[i].last_activity) > 180000) {
                 current_sessions[i].active = false;
                 return false;
             }
@@ -292,6 +292,8 @@ static esp_err_t logout_handler(httpd_req_t *req)
     if (httpd_req_get_hdr_value_str(req, "Authorization", token, sizeof(token)) == ESP_OK) {
         ESP_LOGI(TAG,"main if %s",token);
         char *p = strstr(token, "Bearer ");
+        ESP_LOGI(TAG,"token %s",token);
+            //validate_token(p + 7);
         if (p && validate_token(p + 7)){
             ESP_LOGI(TAG,"token matched");
             current_sessions[0].active = false;
