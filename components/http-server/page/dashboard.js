@@ -61,7 +61,9 @@ async function handleLogout() {
         try {
             await fetch('/logout', {
                 method: 'POST',
-                headers: { 'Authorization': token }
+                //headers: { 'Authorization': token }
+                headers: {'Authorization': `Bearer ${getAuthToken()}`
+            }
             });
         } catch (err) {
             console.warn('Logout request failed:', err);
