@@ -66,6 +66,7 @@ static struct{
   
 
 
+
 static const char *TAG = "HTTP Server";
 
 
@@ -91,22 +92,22 @@ DEFINE_EVENT_ADAPTER(HTTP_SERVER);
 /// @brief Get a buffer from pool
 /// @param wait_time in ms
 /// @return 
-static char* get_chunk_buffer_from_pool(uint32_t wait_time){
-
+static char* get_chunk_buffer_from_pool(uint32_t wait_time) {
     char* recv_buf;
-    //Specifying the address of pointer, because an address is to be copied
-    if(xQueueReceive(http_server.buffer_queue,&recv_buf,pdMS_TO_TICKS(wait_time))!=pdTRUE)
+
+    if (xQueueReceive(http_server.buffer_queue, &recv_buf, 
+                      (wait_time == 0) ? portMAX_DELAY : pdMS_TO_TICKS(wait_time)) != pdTRUE)
         return NULL;
 
-    ESP_LOGI(TAG,"buff address %p",recv_buf);
     return recv_buf;
 }
+
 
 esp_err_t http_server_return_chunk_buffer(char* buffer){
     
     
     //Supplies address  of pointer to get data, so copies address of mem it points
-    ESP_LOGI(TAG,"ret address %p",buffer);
+    //ESP_LOGI(TAG,"ret address %p",buffer);
     if(xQueueSend(http_server.buffer_queue,&buffer,portMAX_DELAY)!=pdTRUE)
         return ESP_FAIL;
 
@@ -367,8 +368,8 @@ static esp_err_t file_upload_handler(httpd_req_t *req)
     while(1){
 
         char* recv_buf=NULL;
-        recv_buf=get_chunk_buffer_from_pool(10);
-
+        recv_buf=get_chunk_buffer_from_pool(0);
+        ESP_LOGI(TAG, "g Mem");
         if(recv_buf==NULL){
             ESP_LOGE(TAG, "Mem not available");
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Mem not available");
@@ -389,13 +390,17 @@ static esp_err_t file_upload_handler(httpd_req_t *req)
             //httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Receive error");
             HTTP_SERVER_post_event(HTTP_SERVER_EVENT_FILE_TRANSFER_COMPLETE,NULL,0);         
             break;
-         }
+            }
         total_received += received;
 
-        HTTP_SERVER_post_event(HTTP_SERVER_EVENT_FILE_CHUNK_ARRIVED,(const void*)recv_buf,received);
+        http_chunk_event_data_t chunk_evt_data={0};
+        chunk_evt_data.ptr=recv_buf;
+        chunk_evt_data.length=received;
+        //ESP_LOGI(TAG,"buff before sending %p",recv_buf);
+            HTTP_SERVER_post_event(HTTP_SERVER_EVENT_FILE_CHUNK_ARRIVED,(const void*)&chunk_evt_data,sizeof(http_chunk_event_data_t));
             
 
-        ESP_LOGD(TAG, "Received %d bytes (total %u)", received, total_received);
+        //ESP_LOGD(TAG, "Received %d bytes (total %u)", received, total_received);
     }
 
     
@@ -629,6 +634,7 @@ esp_err_t http_server_init(http_server_config_t* config){
     
 
     ESP_LOGI(TAG, "Starting HTTP Server");
+    
     if( httpd_start(&http_server.server_handle, &http_config) != ESP_OK){
         ESP_LOGI(TAG,"Server Init Failed");
         return ESP_FAIL;
