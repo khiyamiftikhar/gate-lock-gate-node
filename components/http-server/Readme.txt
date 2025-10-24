@@ -1,0 +1,1 @@
+It will host page that will be used for ota update
