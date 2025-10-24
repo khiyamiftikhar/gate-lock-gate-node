@@ -34,8 +34,12 @@ typedef struct {
 } http_server_config_t;
 
 
+typedef struct{
 
+    char* ptr;
+    int length;
 
+}http_chunk_event_data_t;
 
 
 esp_err_t http_server_init(http_server_config_t* config);
