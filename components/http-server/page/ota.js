@@ -99,16 +99,15 @@ document.addEventListener('DOMContentLoaded', () => {
         progressText.textContent = 'Uploading...';
 
         try {
-            const formData = new FormData();
-            formData.append('firmware', selectedFile);
-
             const response = await fetch('/ota/upload', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${getAuthToken()}`
+                    'Authorization': `Bearer ${getAuthToken()}`,
+                    'Content-Type': 'application/octet-stream'
                 },
-                body: formData
+                body: selectedFile
             });
+
 
             if (!response.ok) {
                 const errText = await response.text();
