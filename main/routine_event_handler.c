@@ -7,6 +7,8 @@
 #include "softap_service.h"
 #include "routine_event_handler.h"
 #include "espnow_discovery.h"
+#include "http_server.h"
+#include "ota_service.h"
 #include "esp_now_transport.h"
 #include "wait_signal_bits.h"
 
@@ -83,6 +85,28 @@ static esp_err_t delegate_post(delegate_func_t func, const void *arg, size_t len
 
 
 
+static void routine_ota_service_events_handler(void *handler_arg,
+                                    int32_t id,
+                                    void *event_data){
+    switch(id){
+
+        case OTA_SERVICE_ROUTINE_EVENT_DATA_BUFFER_USED:
+            char** buffer= (char**) event_data;
+
+            http_server_return_chunk_buffer(*buffer);
+            break;
+        default:
+            break;
+    }
+
+
+                                            
+
+
+                                    }
+
+
+
 static void routine_discovery_events_handler (void *handler_arg,
                                     int32_t id,
                                     void *event_data){
@@ -108,8 +132,9 @@ static void routine_discovery_events_handler (void *handler_arg,
             //if devices discovered then stop wifi which was initialized as station and now reinit as APSTA
             else{
                 wifi_stop();
-                sync_manager_signal_set(SYNC_BIT_WIFI_INIT_DONE);
                 wifi_init_softap(channel);
+                sync_manager_signal_set(SYNC_EVENT_DISCOVERY_COMPLETE);
+                
                 
             }
             break;
@@ -124,6 +149,60 @@ static void routine_discovery_events_handler (void *handler_arg,
 
 
 
+static void routine_http_server_events_handler (void *handler_arg,
+                                    int32_t id,
+                                    void *event_data){
+
+    //a makeshift workaround to scan all the channels one by one
+    static uint8_t channel=0;
+    http_chunk_event_data_t* evt_data=(http_chunk_event_data_t*)event_data;
+                                
+    //The data nis send only on one event, otherwise it is NULL
+    char* buf=NULL;
+    size_t len=0;
+    if(evt_data!=NULL){
+        buf= evt_data->ptr;
+        len=evt_data->length;
+    }
+                                        
+    
+    switch(id){
+
+        case HTTP_SERVER_EVENT_FILE_TRANSFER_STARTED:
+               ota_service_data_event(OTA_EVENT_DATA_ARRIVAL_STARTING_EVENT,NULL,0);
+            
+            break;
+        case HTTP_SERVER_EVENT_FILE_CHUNK_ARRIVED:
+
+                if(buf==NULL)
+                    break;
+                
+                ota_service_data_event(OTA_EVENT_DATA_PACKET_ARRIVED_EVENT,buf,len);
+                //ESP_LOGI(TAG,"chunk buffer evt %p",buf);
+                
+            
+            break;
+        case HTTP_SERVER_EVENT_FILE_TRASFER_FAILED:
+                ESP_LOGI(TAG,"failure");
+               
+            
+            break;
+        case HTTP_SERVER_EVENT_FILE_TRANSFER_COMPLETE:
+               ota_service_data_event(OTA_EVENT_DATA_COMPLETION_EVENT,NULL,0);
+            
+            break;
+        default:
+            break;
+
+
+
+    }
+
+}
+
+
+
+
 void routine_event_handler (void *handler_arg,
                             esp_event_base_t base,
                             int32_t id,
@@ -135,8 +214,16 @@ void routine_event_handler (void *handler_arg,
             ESP_LOGI(TAG,"routine discovery event");
             routine_discovery_events_handler(handler_arg,id,event_data);
         }
-           
-           
+         
+        else if(base==HTTP_SERVER_ROUTINE_EVENT_BASE){
+            //ESP_LOGI(TAG,"routine discovery event");
+            routine_http_server_events_handler(handler_arg,id,event_data);
+        }
+
+        else if(base==OTA_SERVICE_ROUTINE_EVENT_BASE){
+            //ESP_LOGI(TAG,"routine discovery event");
+            routine_ota_service_events_handler(handler_arg,id,event_data);
+        }   
 
 }
 
