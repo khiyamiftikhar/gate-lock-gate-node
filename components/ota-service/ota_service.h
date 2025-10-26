@@ -35,7 +35,10 @@ typedef enum{
 
 
 
-
+/// @brief Should be called after OTA reboot to change the state from pending verifiy to verified
+/// @param valid Seems redundant now, because always true value is used
+/// @return 
+esp_err_t ota_set_valid(bool valid);
 
 
 /// @brief Inform the compponent about the OTA data events
