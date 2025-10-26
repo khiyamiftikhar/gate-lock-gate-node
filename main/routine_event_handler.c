@@ -91,10 +91,16 @@ static void routine_ota_service_events_handler(void *handler_arg,
     switch(id){
 
         case OTA_SERVICE_ROUTINE_EVENT_DATA_BUFFER_USED:
+            //The address of a pointer was passed to post, so double pointer is required here
             char** buffer= (char**) event_data;
-
+            //Return the buffer back to the http buffer pool otherwise it will be short of buffer
             http_server_return_chunk_buffer(*buffer);
             break;
+        
+        case OTA_SERVICE_ROUTINE_EVENT_VALIDATION_PENDING:
+            ota_set_valid(true);
+
+
         default:
             break;
     }
