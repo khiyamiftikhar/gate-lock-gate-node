@@ -1,18 +1,23 @@
 #ifndef http_server_H
 #define http_server_H
 
+#include "event_system_adapter.h"
 #include "esp_err.h"
 
 
-    
+
+
+DECLARE_EVENT_ADAPTER(HTTP_SERVER);
+
+
 //The below is  equivalent 
 //ESP_EVENT_DECLARE_BASE(MY_MODULE_NAME_ROUTINE_EVENT_BASE);
 //but this way it does not require to include the esp_event header
-extern const char * const HTTP_SERVER_ROUTINE_EVENT_BASE;
+//extern const char * const HTTP_SERVER_ROUTINE_EVENT_BASE;
 
 //The below is  equivalent 
 //ESP_EVENT_DECLARE_BASE(MY_MODULE_NAME_EXCEPTION_EVENT_BASE);
-extern const char * const HTTP_SERVER_EXCEPTION_EVENT_BASE;
+//extern const char * const HTTP_SERVER_EXCEPTION_EVENT_BASE;
 
 
 #define   HTTP_SERVER_EVENT_FILE_TRANSFER_STARTED       1
