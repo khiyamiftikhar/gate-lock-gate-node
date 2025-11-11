@@ -11,9 +11,11 @@
 #include "esp_mac.h"
 #include "esp_now_transport.h"
 #include "espnow_discovery.h"
+#include "database_interface.h"
 #include "discovery_timer.h"
+
 #include "peer_registry.h"
-#include "gate_node.h"
+#include "message_codec.h"
 #include "linear_actuator.h"
 #include "system_context.h"
 #include "sync_manager.h"
@@ -23,8 +25,8 @@
 
 
 
-#define     DISCOVERY_DURATION      5000    //ms
-#define     DISCOVERY_INTERVAL      500    //ms
+#define     DISCOVERY_DURATION      6000    //ms
+#define     DISCOVERY_INTERVAL      2000    //ms
 #define     ESPNOW_ENABLE_LONG_RANGE    1
 #define     MAX_WIFI_CHANNEL        13
 
@@ -37,7 +39,7 @@ static TaskHandle_t main_task_handle = NULL;
     
 
 #define     HOME_DEVICE_ID          1
-static const uint8_t home_node_mac[]={0xe4,0x65,0xb8,0x19,0xf0,0x2c};
+static const uint8_t home_node_mac[]={0x64,0xe8,0x33,0x88,0x22,0x38};
 
 
 /*
@@ -120,6 +122,8 @@ static void restart_discovery_with_new_channel(){
 
 void app_main(void)
 {
+    
+    esp_err_t ret=0;
     main_task_handle = xTaskGetCurrentTaskHandle();
     
     
@@ -147,10 +151,14 @@ void app_main(void)
     esp_now_transport_config_t transport_config={.wifi_channel=ESPNOW_CHANNEL};
 
     //The objcts created but callbacks not assigned. will be assigned later
-    esp_now_trasnsport_interface_t* espnow_transport=esp_now_transport_init(&transport_config);
+    ret=esp_now_transport_init(&transport_config);
 
-    if(espnow_transport==NULL)
+    if(ret==ESP_FAIL){
         ESP_LOGI(TAG,"transport init failed");
+        ESP_ERROR_CHECK(ret);
+    }
+
+
     
     peer_registry_config_t registry_config={.max_peers=2};
 
@@ -168,38 +176,28 @@ void app_main(void)
         ESP_LOGI(TAG,"peer registry init failed");
     
 
-    discovery_timer_implementation_t* timer_interface=timer_create(DISCOVERY_INTERVAL);
-
-
-    if(timer_interface==NULL)
-        ESP_LOGI(TAG,"timer init failed");
     
-    ESP_LOGI(TAG,"timer init done");
+
 
     config_espnow_discovery discovery_config;
     //Must be an instance because config contains a pointer to it and 
     //unlike timer, peer_registry, its instance is not provided by any source
-    discovery_comm_interface_t discovery_comm_interface;
     
-    //Assign methods required by the discovery service component provided by the esp-now-comm component
-    discovery_comm_interface.acknowledge_the_discovery=espnow_transport->esp_now_transport_send_discovery_ack;
-    discovery_comm_interface.add_peer=espnow_transport->esp_now_transport_add_peer;
-    discovery_comm_interface.send_discovery=espnow_transport->esp_now_transport_send_discovery;
+    esp_now_trasnsport_discovery_package_t* discovery_interface=esp_now_transport_get_discovery_interface();
+    //This interface struct contaains complete package required by message service
+    
+    database_interface_t database_interface = {.is_white_listed=peer_registry->peer_registry_exists_by_mac};
 
-    //This is the odd one. newly added. discovery interface informs when discovery complete
-    discovery_comm_interface.process_discovery_completion_callback=discovery_completion_handler;
-
+    discovery_config.database_interface=&database_interface;
+    discovery_config.peer_manager_interface=&discovery_interface->peer_manager_interface;
+    discovery_config.discovery_interface=&discovery_interface->discovery_interface;
+    
+    
     //Assign the discovery interface to the discovery member of discovery config
-    discovery_config.discovery=&discovery_comm_interface;
-    discovery_config.timer=&timer_interface->methods;
-    //The white list interface member assigned to the peer registry appropriate method
-    discovery_whitelist_interface_t white_list;
-    white_list.is_white_listed=peer_registry->peer_registry_exists_by_mac;
-    discovery_config.whitelist=&white_list;
     discovery_config.discovery_duration=DISCOVERY_DURATION;
     discovery_config.discovery_interval=DISCOVERY_INTERVAL;
     
-    discovery_service_interface_t* discovery_handlers=discovery_service_init(&discovery_config);
+    ret=discovery_service_init(&discovery_config);
 
     ESP_LOGI(TAG,"discovery init init done");
     //Now since discovery interface is created and it returned the handlers. now thoose handlers will be assigned to callbacks
@@ -209,63 +207,47 @@ void app_main(void)
     as interface member wont work as the returned interface pointer is a copy of the original
     */
 
-    espnow_transport->callbacks.on_device_discovered=discovery_handlers->comm_callback_handler.process_discovery_callback;
-    espnow_transport->callbacks.on_discovery_ack=discovery_handlers->comm_callback_handler.process_discovery_acknowledgement_callback;
     
-    timer_interface->callback_handler=discovery_handlers->timer_callback_handler.timer_handler;
-    
-
-
     //Message Service component
     //Assign the interface members required by the message service commponent
-    gate_node_config_t gate_config;
+    message_codec_config_t message_codec_config;
     
+    message_codec_config.database_interface=&database_interface;
+    esp_now_trasnsport_msg_package_t* message_interface=esp_now_transport_get_msg_interface();
+    message_codec_config.msg_interface=&message_interface->msg_interface;
+
+    message_codec_init(&message_codec_config);
+
     //This is redndant and needs to be optimized. discovery component has the same innterface
-    node_white_list_interface_t node_white_list;
-    node_white_list.is_in_whitelist=peer_registry->peer_registry_exists_by_mac;
-    //Must be an instance because config contains a pointer to it and 
-    //unlike timer, peer_registry, its instance is not provided by any source
-    gate_config.list=&node_white_list;
-    node_msg_interface_t msg_interface;
-    msg_interface.send_msg=espnow_transport->esp_now_transport_send_data;
-    //The remaining callbacks of the esp_now_comm to the deserving targets
-    //So now esp_now_comm will invoke methods inside the message service sources
     
     linear_lock_config_t linear_lock_config={.unlock_hold_duration=2000,    //ms
             
     };
-    gate_node_lock_interface_t* lock=linear_lock_create(&linear_lock_config);
-    
-    /*
-    lock.get_lock_status=get_lock_status;
-    lock.set_lock_close=set_lock_close;
-    lock.set_lock_open=set_lock_open;
-    */
+    lock_system_lock_interface_t* lock=linear_lock_create(&linear_lock_config);
     
     
-    gate_config.msg=&msg_interface;
-    gate_config.lock=lock;
     
     
-    gate_node_service_interface_t* gate_node= gate_node_init(&gate_config);
 
-    espnow_transport->callbacks.on_data_received=gate_node->msg_received_handler;
     
     start_discovery();
 
+    //Wait till discovery completes before proceeding
     sync_manager_signal_wait(SYNC_EVENT_DISCOVERY_COMPLETE,true,portMAX_DELAY);
-    espnow_transport->esp_now_transport_add_peer(home_node_mac);
+
+    discovery_interface->peer_manager_interface.esp_now_transport_add_peer(home_node_mac);
+
     //wifi_init_softap();
-    uint32_t current_time = xTaskGetTickCount() / 1000;     //Time in seconds
-    uint32_t previous_time=current_time;
+    uint32_t current_time_ms = (xTaskGetTickCount() * 1000) / configTICK_RATE_HZ;
+    uint32_t previous_time=current_time_ms;
     //This while 1 will run at boot until channel is found
     while(1){
-        current_time = xTaskGetTickCount() / 1000;
+        current_time_ms = (xTaskGetTickCount() * 1000) / configTICK_RATE_HZ;
         uint32_t total_devices_found=0;
 
-        if(current_time-previous_time>100){
+        if(current_time_ms-previous_time>1000000){
                 start_discovery();
-                previous_time=current_time;
+                previous_time=current_time_ms;
         }
     
        vTaskDelay(pdMS_TO_TICKS(200));

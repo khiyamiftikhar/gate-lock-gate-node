@@ -1,4 +1,16 @@
 dependencies:
+  peer-manager-interface:
+    path: E:/vscodeespidf/projectworkspace/components-new/esp-now/peer-manager-interface
+    #git: https://github.com/khiyamiftikhar/espnow-components
+    #path: peer-manager-interface
+    #version: development/layered-architecure
+  database-interface:
+    path: E:/vscodeespidf/projectworkspace/components-new/esp-now/database-interface
+    #git: https://github.com/khiyamiftikhar/espnow-components
+    #path: database-interface
+    #version: development/layered-architecure
+  discovery-interface:
+    path: E:/vscodeespidf/projectworkspace/components-new/esp-now/discovery-interface
   esp-now-comm:
     path: E:/vscodeespidf/projectworkspace/components-new/esp-now/esp-now-comm
   discovery_service:
@@ -11,3 +23,4 @@ dependencies:
     git: https://github.com/khiyamiftikhar/sync-manager
   event-adapter:
     git: https://github.com/khiyamiftikhar/event-adapter
+    version: development/make_standard_lib_private

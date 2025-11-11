@@ -8,7 +8,7 @@
 #include "cJSON.h"
 #include "esp_random.h"     // esp_random()
 #include "http_server.h"
-#include "event_system_adapter.h"
+
 
 
 #define         MAX_URIS                    5
@@ -369,7 +369,7 @@ static esp_err_t file_upload_handler(httpd_req_t *req)
 
         char* recv_buf=NULL;
         recv_buf=get_chunk_buffer_from_pool(0);
-        ESP_LOGI(TAG, "g Mem");
+        //ESP_LOGI(TAG, "g Mem");
         if(recv_buf==NULL){
             ESP_LOGE(TAG, "Mem not available");
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Mem not available");
@@ -753,13 +753,13 @@ esp_err_t http_server_init(http_server_config_t* config){
 
 
     //Tell the ota that file chunk will be transferred next
-    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRANSFER_STARTED,NULL);
+    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRANSFER_STARTED,NULL,NULL);
     //When a file chunk arrives
-    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_CHUNK_ARRIVED,NULL);
+    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_CHUNK_ARRIVED,NULL,NULL);
     //When file recive fails
-    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRASFER_FAILED,NULL);
+    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRASFER_FAILED,NULL,NULL);
     //On successfull EOF (0 data recevied in last chunk)
-    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRANSFER_COMPLETE,NULL);
+    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRANSFER_COMPLETE,NULL,NULL);
     return ESP_OK;
 
     

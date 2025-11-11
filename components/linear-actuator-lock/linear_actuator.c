@@ -25,6 +25,24 @@
 
 
 static const char* TAG="linear lock";
+typedef enum{
+    COMMAND_CLOSE_MOTOR,        //Run in close direction
+    COMMAND_OPEN_MOTOR,         //Run in open direction
+    COMMAND_IDLE_MOTOR,          //Motor driver in idle position
+    COMMAND_LOCK_STATUS
+}motor_command_t;
+
+
+/// @brief Detailed value internal to this source. It has much more detailed state than in the interface enum
+typedef enum{
+    LOCK_STATUS_CLOSED,
+    LOCK_STATUS_OPEN,
+    LOCK_STATUS_CLOSED_IDLE,
+    LOCK_STATUS_OPENED_IDLE,
+    LOCK_STATUS_CLOSING
+
+}lock_internal_state_t;
+
 
 
 static struct{
@@ -34,16 +52,9 @@ static struct{
     //These two are to serialize the users
     QueueHandle_t command_queue;
     TaskHandle_t command_queue_task;
-    lock_system_lock_status_t status;
-    gate_node_lock_interface_t interface;
+    lock_internal_state_t status;
+    lock_system_lock_interface_t interface;
 }lock_state={0};
-
-typedef enum{
-    COMMAND_CLOSE_MOTOR,        //Run in close direction
-    COMMAND_OPEN_MOTOR,         //Run in open direction
-    COMMAND_IDLE_MOTOR,          //Motor driver in idle position
-    COMMAND_LOCK_STATUS
-}motor_command_t;
 
 //static motor_command_t motor_command={0};
 
@@ -100,7 +111,21 @@ static void lock_timer_callback_handler(TimerHandle_t timer){
 
 lock_system_lock_status_t get_lock_status(){
 
-    return lock_state.status;
+    lock_system_lock_status_t lock_status;
+    switch(lock_state.status){
+
+        case LOCK_STATUS_CLOSED:
+            lock_status=LOCK_INTERFACE_LOCK_STATUS_CLOSE;
+            break;
+        case LOCK_STATUS_OPEN:
+            lock_status=LOCK_INTERFACE_LOCK_STATUS_OPEN;
+            break;
+        default:
+            lock_status=LOCK_INTERFACE_LOCK_STATUS_UNDEFINED;
+            break;
+            
+    }
+    return lock_status;
 }
 
 
@@ -149,10 +174,10 @@ static void lock_task(void* args){
                     }
                     else if(lock_state.status==LOCK_STATUS_OPEN){
                         set_motor_driver_idle();
-                        lock_state.status=LOCK_STATUS_OPENDED_IDLE;
+                        lock_state.status=LOCK_STATUS_OPENED_IDLE;
                     }
 
-                    else if(lock_state.status==LOCK_STATUS_OPENDED_IDLE){
+                    else if(lock_state.status==LOCK_STATUS_OPENED_IDLE){
                         //Stop the timer
                         xTimerStop(lock_state.timer,portMAX_DELAY);
                         //Start fresh with the closing
@@ -173,7 +198,11 @@ static void lock_task(void* args){
 
 
 
-gate_node_lock_interface_t* linear_lock_create(linear_lock_config_t* config){
+lock_system_lock_interface_t* lock_system_get_interface(){
+    return &lock_state.interface;
+}
+
+lock_system_lock_interface_t* linear_lock_create(linear_lock_config_t* config){
 
     gpio_config_t io_conf = {};
     //disable interrupt

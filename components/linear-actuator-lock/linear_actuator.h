@@ -2,7 +2,7 @@
 #define LINEAR_ACTUATOR_H
 
 #include <stdint.h>
-#include "gate_node.h"      //It defines the lock interface
+#include "lock_interface.h"      //It defines the lock interface
 
 
 
@@ -18,7 +18,10 @@ typedef struct{
 }linear_lock_config_t;
 
 
-gate_node_lock_interface_t* linear_lock_create(linear_lock_config_t* config);
+
+
+lock_system_lock_interface_t* lock_system_get_interface();
+lock_system_lock_interface_t* linear_lock_create(linear_lock_config_t* config);
 
 
 
