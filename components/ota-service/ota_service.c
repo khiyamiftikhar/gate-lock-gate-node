@@ -13,7 +13,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_system.h"
-#include "esp_event.h"
+
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_app_format.h"
@@ -21,7 +21,6 @@
 #include "esp_partition.h"
 #include "errno.h"
 #include "ota_service.h"
-#include "event_system_adapter.h"
 #include "sync_manager.h"
 
 
@@ -348,9 +347,9 @@ esp_err_t ota_service_init(){
         return ESP_FAIL;
 
    
-    OTA_SERVICE_register_event(OTA_SERVICE_ROUTINE_EVENT_VALIDATION_PENDING,NULL);
+    OTA_SERVICE_register_event(OTA_SERVICE_ROUTINE_EVENT_VALIDATION_PENDING,NULL,NULL);
     //It will inform when the data buffer provided to it is used and now free
-    OTA_SERVICE_register_event(OTA_SERVICE_ROUTINE_EVENT_DATA_BUFFER_USED,NULL);
+    OTA_SERVICE_register_event(OTA_SERVICE_ROUTINE_EVENT_DATA_BUFFER_USED,NULL,NULL);
 
 
     
