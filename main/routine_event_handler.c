@@ -10,7 +10,9 @@
 #include "http_server.h"
 #include "ota_service.h"
 #include "esp_now_transport.h"
+#include "message_codec.h"
 #include "wait_signal_bits.h"
+#include "linear_actuator.h"
 
 static const char* TAG="Routine";
 
@@ -49,6 +51,18 @@ static void delegated_to_task_restart_discovery_on_new_channel(void *arg, size_t
     esp_now_transport_init(&config);
 
     start_discovery();
+}
+
+
+static void delegated_to_task_restart_wifi_apsta(void *arg, size_t len) {
+    if (len != sizeof(uint8_t)) return;
+    uint8_t channel = *(uint8_t *)arg;
+
+    wifi_stop();
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    wifi_init_softap(channel);
+    sync_manager_signal_set(SYNC_EVENT_DISCOVERY_COMPLETE);
+
 }
 
 
@@ -137,11 +151,11 @@ static void routine_discovery_events_handler (void *handler_arg,
             }
             //if devices discovered then stop wifi which was initialized as station and now reinit as APSTA
             else{
-                wifi_stop();
-                wifi_init_softap(channel);
-                sync_manager_signal_set(SYNC_EVENT_DISCOVERY_COMPLETE);
+                ESP_LOGI(TAG,"its over %d",channel);
+
+                delegate_post(delegated_to_task_restart_wifi_apsta,(void*)&channel,sizeof(channel));
                 
-                
+                                
             }
             break;
         default:
@@ -208,6 +222,52 @@ static void routine_http_server_events_handler (void *handler_arg,
 
 
 
+static void routine_message_codec_events_handler (void *handler_arg,
+                                    int32_t id,
+                                    void *event_data){
+
+
+    lock_system_lock_interface_t* lock_interface=lock_system_get_interface();
+    lock_system_lock_status_t lock_status;
+    
+
+    switch(id){
+
+        case MESSAGE_SERVICE_ROUTINE_EVENT_COMMAND_OPEN_GATE:
+            lock_interface->set_lock_open();
+            break;
+
+        case MESSAGE_SERVICE_ROUTINE_EVENT_COMMAND_CLOSE_GATE:
+            lock_interface->set_lock_close();
+            break;
+        case MESSAGE_SERVICE_ROUTINE_EVENT_COMMAND_SEND_GATE_STATUS:
+            lock_status=lock_interface->get_lock_status();
+            uint8_t* mac_addr=(uint8_t*)event_data;
+            message_codec_lock_status_t message_lock_status=lock_status;
+            message_codec_send_status(mac_addr,message_lock_status);
+            break;
+
+
+        case MESSAGE_SERVICE_ROUTINE_EVENT_GATE_STATUS_ARRIVED:
+            break;
+
+
+        
+        default:
+            break;
+
+
+
+
+    }
+
+                                    }
+
+
+
+
+
+
 
 void routine_event_handler (void *handler_arg,
                             esp_event_base_t base,
@@ -230,6 +290,14 @@ void routine_event_handler (void *handler_arg,
             //ESP_LOGI(TAG,"routine discovery event");
             routine_ota_service_events_handler(handler_arg,id,event_data);
         }   
+
+        else if(base==MESSAGE_CODEC_ROUTINE_EVENT_BASE){
+               ESP_LOGI(TAG,"trasnport routine");
+            routine_message_codec_events_handler(handler_arg,id,event_data);
+
+        }
+
+        
 
 }
 
