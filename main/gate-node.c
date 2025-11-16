@@ -13,7 +13,6 @@
 #include "espnow_discovery.h"
 #include "database_interface.h"
 #include "discovery_timer.h"
-
 #include "peer_registry.h"
 #include "message_codec.h"
 #include "linear_actuator.h"
@@ -25,10 +24,10 @@
 
 
 
-#define     DISCOVERY_DURATION      6000    //ms
-#define     DISCOVERY_INTERVAL      2000    //ms
-#define     ESPNOW_ENABLE_LONG_RANGE    1
-#define     MAX_WIFI_CHANNEL        13
+#define     DISCOVERY_DURATION              6000    //ms
+#define     DISCOVERY_INTERVAL              2000    //ms
+#define     ESPNOW_ENABLE_LONG_RANGE        1
+#define     MAX_WIFI_CHANNEL                13
 
 static const char* TAG="main gate";
 static uint8_t ESPNOW_CHANNEL=1;
