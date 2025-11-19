@@ -152,6 +152,7 @@ static void lock_task(void* args){
 
                     //Only give open command if timer is already not running
                     //if (xTimerIsTimerActive(lock_state.timer) == pdFALSE) {
+                        ESP_LOGI(TAG,"opening command");
                         set_motor_driver_idle();
                         gpio_set_level(GPIO_OUTPUT_IO_1,1);
                         xTimerStart(lock_state.timer,portMAX_DELAY);
@@ -245,6 +246,9 @@ lock_system_lock_interface_t* linear_lock_create(linear_lock_config_t* config){
     lock_state.interface.set_lock_close=set_motor_close;
     lock_state.interface.set_lock_open=set_motor_open;
     lock_state.interface.get_lock_status=get_lock_status;
+
+    //Set idle on init
+    set_motor_driver_idle();
 
     return &lock_state.interface;
 
