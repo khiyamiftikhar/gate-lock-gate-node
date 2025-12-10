@@ -8,6 +8,7 @@ extern "C" {
 
 // API
 void ui_boot_init(void);
+void ui_boot_load_screen();
 
 #ifdef __cplusplus
 }

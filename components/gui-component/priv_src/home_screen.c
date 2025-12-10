@@ -1,6 +1,7 @@
 
 #include "ui_defs.h"
 #include "ui_home.h"
+#include "ui_worker.h"
 // Screen structure (auto-generated)
 #include <stdint.h>
 #include <stddef.h>

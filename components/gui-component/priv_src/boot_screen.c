@@ -1,8 +1,9 @@
 
 #include "ui_defs.h"
 #include "ui_boot.h"
-
+#include "ui_worker.h"
 // Screen structure (auto-generated)
+#include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -45,6 +46,46 @@ ui_screen_t boot_screen = {
     },
     .lv_screen = NULL
 };
+
+
+
+static void ui_boot_load_screen_cb(void* args){
+
+    printf("\nboot screen...");
+    lv_scr_load(boot_screen.lv_screen);
+    printf("\nloaded...\n");
+
+     //for(int i = 0; i < boot_screen.child_count; i++){
+       // ui_child_t *c = &boot_screen.children[i];
+           
+}
+
+
+void ui_boot_load_screen(){
+
+   ui_worker_process_job(ui_boot_load_screen_cb, NULL);
+
+}
+
+
+
+static void ui_boot_set_main_label_cb(void* args){
+    printf("\nboot screen...");
+    lv_scr_load(boot_screen.lv_screen);
+    printf("\nloaded...\n");
+
+     //for(int i = 0; i < boot_screen.child_count; i++){
+       // ui_child_t *c = &boot_screen.children[i];
+}
+
+
+void ui_boot_set_main_label(char* string){
+
+    int n = snprintf(boot_screen.children[1].text, sizeof(boot_screen.children[1].text), "%s", string);
+    ui_worker_process_job(ui_boot_set_main_label_cb, (void*)boot_screen.children[1].text);
+
+}
+
 
 // ------------------------------
 // Boot_Screen INIT
