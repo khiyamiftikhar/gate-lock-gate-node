@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern void lv_obj_t; /* forward-declare type for readability; include lvgl headers in your project */
+//extern void lv_obj_t; /* forward-declare type for readability; include lvgl headers in your project */
 
 ui_screen_t home_screen = {
     .name = "Home_Screen",
@@ -14,6 +14,7 @@ ui_screen_t home_screen = {
     .children = {
     {
         .type = UI_CHILD_LABEL,
+        .id = "label_ap_ssid",
         .lv_obj = NULL,
         .x = 50, .y = 2,
         .w = 55, .h = 9,
@@ -24,6 +25,7 @@ ui_screen_t home_screen = {
     },
     {
         .type = UI_CHILD_LABEL,
+        .id = "label_main",
         .lv_obj = NULL,
         .x = 8, .y = 14,
         .w = 112, .h = 13,
@@ -34,6 +36,7 @@ ui_screen_t home_screen = {
     },
     {
         .type = UI_CHILD_ICON,
+        .id = "icon_wifi",
         .lv_obj = NULL,
         .x = 108, .y = -1,
         .w = 14, .h = 14,
@@ -44,6 +47,7 @@ ui_screen_t home_screen = {
     },
     {
         .type = UI_CHILD_LABEL,
+        .id = "label_discovery",
         .lv_obj = NULL,
         .x = 2, .y = 2,
         .w = 38, .h = 8,

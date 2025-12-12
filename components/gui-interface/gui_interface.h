@@ -8,13 +8,16 @@
     extern "C" {
  #endif
 
-
+#define     GUI_MAX_STRING_SIZE     50
 
 //The name is misleading as if it is some gui event.
 //Actually it is some system event for gui to display info about
 
  typedef enum{
-    SYSTEM_BOOT,
+    SYSTEM_BOOTING,
+    SYSTEM_BOOT_DONE,
+    SYSTEM_SEARCHING_HOME_NODE,
+    
 
 
 }gui_event_t;
@@ -22,10 +25,7 @@
 
 
 typedef struct{
-
-    const char* string;
-
-
+    const char string[GUI_MAX_STRING_SIZE];
 }gui_event_data_t;
 
 

@@ -12,6 +12,7 @@ extern "C" {
 #define UI_MAX_CHILDREN         16
 #define UI_MAX_ICON_STATES      8
 #define UI_MAX_STRING_LENGTH    30
+#define UI_MAX_ID_LENGTH        30
 
 typedef enum
 {
@@ -29,6 +30,7 @@ typedef struct {
 // A child object of a screen
 typedef struct {
     ui_child_type_t type;
+    char id[UI_MAX_ID_LENGTH];      //To differentiate among elements of same type e.g labels, whether main or header
 
     // LVGL object handle created at runtime
     lv_obj_t *lv_obj;

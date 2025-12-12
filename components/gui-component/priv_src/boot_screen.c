@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern void lv_obj_t; /* forward-declare type for readability; include lvgl headers in your project */
+//extern void lv_obj_t; /* forward-declare type for readability; include lvgl headers in your project */
 
 ui_screen_t boot_screen = {
     .name = "Boot_Screen",
@@ -15,6 +15,7 @@ ui_screen_t boot_screen = {
     .children = {
     {
         .type = UI_CHILD_LABEL,
+        .id = "label_main",
         .lv_obj = NULL,
         .x = 8, .y = 14,
         .w = 112, .h = 13,
@@ -25,6 +26,7 @@ ui_screen_t boot_screen = {
     },
     {
         .type = UI_CHILD_LABEL,
+        .id = "label_channel_no",
         .lv_obj = NULL,
         .x = 55, .y = 2,
         .w = 55, .h = 9,
@@ -35,6 +37,7 @@ ui_screen_t boot_screen = {
     },
     {
         .type = UI_CHILD_LABEL,
+        .id = "label_discovery",
         .lv_obj = NULL,
         .x = 3, .y = 2,
         .w = 38, .h = 10,
@@ -46,7 +49,6 @@ ui_screen_t boot_screen = {
     },
     .lv_screen = NULL
 };
-
 
 
 static void ui_boot_load_screen_cb(void* args){
