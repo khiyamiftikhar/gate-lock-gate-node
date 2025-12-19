@@ -46,6 +46,7 @@ static void gui_op_task(){
 
 
 
+
     while(1){
 
 
@@ -53,26 +54,43 @@ static void gui_op_task(){
 
             switch(op_info.event){
 
-
                 case SYSTEM_BOOTING:
-
+                    ui_boot_load_screen();
+                    ui_boot_set_main_label("booting");
+                    ui_boot_set_channel_info_label("....");
+                    ui_boot_set_discovery_info_label("....");
                     break;
 
+                case SYSTEM_SEARCHING_HOME_NODE:     //search again
+                    ui_boot_set_main_label(op_info.evt_data.string);
+
+                    char channel_string[3];
+    
+                    sprintf(channel_string, "%d", op_info.evt_data.val);
+                    
+                    
+                    ui_boot_set_channel_info_label(channel_string);
+                    
+                    break;
+
+                case SYSTEM_BOOT_DONE:
+                    ui_home_load_screen();
+                    ui_home_set_main_label("Welcome");
+                    ui_home_set_wifi_ssid_label("starting");
+                    ui_home_set_wifi_state(4);
+                    break;
+
+                case SYSTEM_WIFI_AP_INIT:
+                    
+                    
+                    ui_home_set_wifi_ssid_label(op_info.evt_data.string);
+                    ui_home_set_wifi_state(0);
+                    break;
+                   
                 default:
                     break;
 
-
-
-
-
-
-
-
-
-
-
-
-            }
+           }
         }
 
 
@@ -91,7 +109,8 @@ esp_err_t gui_inform(gui_event_t event, gui_event_data_t *evt_data)
     op_info.event = event;
 
     if (evt_data)
-        op_info.evt_data = *evt_data;   // full struct copy
+        memcpy(&op_info.evt_data,evt_data,sizeof(gui_event_data_t));
+        //op_info.evt_data = *evt_data;   // full struct copy
 
     BaseType_t ret = xQueueSend(
         gui_op.gui_op_queue,
@@ -102,17 +121,19 @@ esp_err_t gui_inform(gui_event_t event, gui_event_data_t *evt_data)
     return (ret == pdTRUE) ? ESP_OK : ESP_FAIL;
 }
 
-void gui_op_init(){
+esp_err_t gui_op_init(){
 
 
     gui_op.gui_op_queue = xQueueCreate(10, sizeof(gui_op_info_t));
     ESP_ERROR_CHECK(gui_op.gui_op_queue==NULL);
 
-    BaseType_t  ret=xTaskCreate(gui_op.gui_op_task, "lvgl_notify", 4096, NULL, 5, NULL);
+    BaseType_t  ret=xTaskCreate(gui_op_task, "lvgl_notify", 4096, NULL, 5, &gui_op.gui_op_task);
     ESP_ERROR_CHECK(ret!=pdTRUE);
 
     gui_op.interface.gui_inform=gui_inform;
     gui_op.init=true;
+
+    return ESP_OK;
 
 }
 
