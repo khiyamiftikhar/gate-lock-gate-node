@@ -15,9 +15,10 @@
 
  typedef enum{
     SYSTEM_BOOTING,
+    SYSTEM_SEARCHING_HOME_NODE,     //search again
     SYSTEM_BOOT_DONE,
-    SYSTEM_SEARCHING_HOME_NODE,
-    
+    SYSTEM_WIFI_AP_INIT
+        
 
 
 }gui_event_t;
@@ -26,6 +27,7 @@
 
 typedef struct{
     const char string[GUI_MAX_STRING_SIZE];
+    int val;
 }gui_event_data_t;
 
 
