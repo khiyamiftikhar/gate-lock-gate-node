@@ -16,7 +16,7 @@
 
 
 esp_err_t gui_op_init();
-gui_interface_t* gpu_op_get_interface();
+gui_interface_t* gui_op_get_interface();
 
 
 
