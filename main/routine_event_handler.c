@@ -14,6 +14,11 @@
 #include "wait_signal_bits.h"
 #include "linear_actuator.h"
 
+#include "gui_interface.h"
+#include "gui_op.h"
+#include "lcd_device.h"
+
+
 static const char* TAG="Routine";
 
 #define     MAX_WIFI_CHANNEL        13
@@ -33,6 +38,7 @@ static QueueHandle_t delegate_queue = NULL;
 
 
 static TaskHandle_t delegate_task_handle=NULL;
+static gui_interface_t* gui_interface;
 
 
 
@@ -46,6 +52,10 @@ static void delegated_to_task_restart_discovery_on_new_channel(void *arg, size_t
     vTaskDelay(pdMS_TO_TICKS(1000));
     wifi_set_channel(channel);
 
+    gui_event_data_t evt_data={.string="Searching Home",
+                                .val=channel};
+    
+    gui_interface->gui_inform(SYSTEM_SEARCHING_HOME_NODE,&evt_data);
     esp_now_transport_config_t config = { .wifi_channel = channel };
     vTaskDelay(pdMS_TO_TICKS(1000));
     esp_now_transport_init(&config);
@@ -120,9 +130,6 @@ static void routine_ota_service_events_handler(void *handler_arg,
     }
 
 
-                                            
-
-
                                     }
 
 
@@ -145,8 +152,13 @@ static void routine_discovery_events_handler (void *handler_arg,
                 if(channel>MAX_WIFI_CHANNEL){
                     channel=1;
                 }
+
+                
                 //Since the procedure involves deiniting and initing espnow and has vtaskdelay, 
                 //so delegate to a task instead of blocking the event handler
+
+                
+                
                 delegate_post(delegated_to_task_restart_discovery_on_new_channel,(void*)&channel,sizeof(channel));
             }
             //if devices discovered then stop wifi which was initialized as station and now reinit as APSTA
@@ -154,7 +166,7 @@ static void routine_discovery_events_handler (void *handler_arg,
                 ESP_LOGI(TAG,"its over %d",channel);
 
                 delegate_post(delegated_to_task_restart_wifi_apsta,(void*)&channel,sizeof(channel));
-                
+                gui_interface->gui_inform(SYSTEM_BOOT_DONE,NULL);
                                 
             }
             break;
@@ -328,6 +340,8 @@ esp_err_t routine_handler_init(){
             return ESP_FAIL;
         }
     }
+
+    gui_interface  = gui_op_get_interface();
 
     return ESP_OK;
 }

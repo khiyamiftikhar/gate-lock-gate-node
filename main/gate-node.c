@@ -21,6 +21,11 @@
 #include "event_system_adapter.h"
 #include "exception_handler.h"
 #include "routine_event_handler.h"
+#include "gui_interface.h"
+#include "gui_op.h"
+#include "lcd_device.h"
+
+
 
 
 
@@ -129,6 +134,7 @@ void app_main(void)
     
     esp_flash_init();
     //event_context_init();
+    gui_op_init();
 
     sync_manager_init();
     
@@ -139,6 +145,11 @@ void app_main(void)
     routine_handler_init();
 
     wifi_station_init();
+
+    lcd_init();
+    
+
+
 
     
     
@@ -228,13 +239,22 @@ void app_main(void)
     
     
 
-    
+    gui_interface_t* gui_interface=gui_op_get_interface();
+
+
+    gui_interface->gui_inform(SYSTEM_BOOTING,NULL);
+
     start_discovery();
+    
 
     //Wait till discovery completes before proceeding
     sync_manager_signal_wait(SYNC_EVENT_DISCOVERY_COMPLETE,true,portMAX_DELAY);
 
     discovery_interface->peer_manager_interface.esp_now_transport_add_peer(home_node_mac);
+
+
+    gui_event_data_t evt_data={.string="ESP32_Config"};
+    gui_interface->gui_inform(SYSTEM_WIFI_AP_INIT,&evt_data);
 
     //wifi_init_softap();
     uint32_t current_time_ms = (xTaskGetTickCount() * 1000) / configTICK_RATE_HZ;
