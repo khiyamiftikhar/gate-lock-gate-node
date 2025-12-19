@@ -159,12 +159,12 @@ esp_err_t lcd_init(){
     }*/
    /* --- YOUR UI INITIALIZATION --- */
 
-    ret=ui_worker_init();
-    ret=ui_boot_init();     //Init and loading combined in one
-    ret=ui_home_init();                          // create objects
+    ui_worker_init();
+    ui_boot_init();     //Init and loading combined in one
+    ui_home_init();                          // create objects
 
 
-    return ret;
+    return ESP_OK;
 
 }
 
