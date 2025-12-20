@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "linear_actuator.h"
+#include "lock_drive.h"
 
 
 
@@ -36,11 +37,13 @@ typedef enum{
 /// @brief Detailed value internal to this source. It has much more detailed state than in the interface enum
 typedef enum{
     LOCK_STATUS_CLOSED,
-    LOCK_STATUS_OPEN,
+    LOCK_STATUS_OPENED,
     LOCK_STATUS_CLOSED_IDLE,
     LOCK_STATUS_OPENED_IDLE,
-    LOCK_STATUS_CLOSING
-
+    LOCK_STATUS_CLOSING,
+    LOCK_STATUS_OPENING,
+    LOCK_STATUS_IDLE,
+    
 }lock_internal_state_t;
 
 
@@ -54,6 +57,9 @@ static struct{
     TaskHandle_t command_queue_task;
     lock_internal_state_t status;
     lock_system_lock_interface_t interface;
+    motor_command_t current_command;    //only to be modified inside the task
+    lock_direction_t current_direction; //only to be modified inside the task
+    uint8_t speed;      //0-100 speed value, only to be modified inside the task
 }lock_state={0};
 
 //static motor_command_t motor_command={0};
@@ -94,7 +100,9 @@ static void lock_timer_callback_handler(TimerHandle_t timer){
     motor_command_t command;
     
     //if(lock_state.status==LOCK_STATUS_OPEN){
-        command=COMMAND_IDLE_MOTOR;
+
+        ESP_LOGE(TAG, "TIMER fired, status=%d", lock_state.status); 
+        command=lock_state.current_command;
         xQueueSend(lock_state.command_queue,&command,portMAX_DELAY);
         //lock_state.status=LOCK_STATUS_CLOSING;      //not closed but will be
     /*}
@@ -117,13 +125,13 @@ lock_system_lock_status_t get_lock_status(){
         case LOCK_STATUS_CLOSED:
             lock_status=LOCK_INTERFACE_LOCK_STATUS_CLOSE;
             break;
-        case LOCK_STATUS_OPEN:
+        case LOCK_STATUS_OPENED:
             lock_status=LOCK_INTERFACE_LOCK_STATUS_OPEN;
             break;
         default:
             lock_status=LOCK_INTERFACE_LOCK_STATUS_UNDEFINED;
             break;
-            
+
     }
     return lock_status;
 }
@@ -135,62 +143,121 @@ static void lock_task(void* args){
     while(1){
 
         if(xQueueReceive(lock_state.command_queue,&command,portMAX_DELAY)==pdTRUE){
+            ESP_LOGI(TAG,"lock state %d",lock_state.status);
+            switch (lock_state.status){
 
-            switch (command){
-                case COMMAND_CLOSE_MOTOR:
-                        ESP_LOGI(TAG,"closing command");
-                   // if (xTimerIsTimerActive(lock_state.timer) == pdFALSE) {
-                        ESP_LOGI(TAG,"closing command exec");
-                        set_motor_driver_idle();
-                        gpio_set_level(GPIO_OUTPUT_IO_0,1);
-                        lock_state.status=LOCK_STATUS_CLOSED;
-                        xTimerStart(lock_state.timer,portMAX_DELAY);
-                    //}
-                    break;
+                case LOCK_STATUS_CLOSING:
 
-                case COMMAND_OPEN_MOTOR:
+                    switch (command){
+                        case COMMAND_OPEN_MOTOR:
+                               ESP_LOGI(TAG,"opening command");
+                               //Set idle first
+                                lock_drive_idle();
+                                //Then update state
+                                lock_state.status=LOCK_STATUS_OPENING;
+                                //reset speed
+                                lock_state.speed=0;
+                                lock_state.current_direction=LOCK_DIRECTION_FORWARD;
+                                lock_state.current_command=COMMAND_OPEN_MOTOR;
+                                xTimerStart(lock_state.timer,portMAX_DELAY);
+                        break;
 
-                    //Only give open command if timer is already not running
-                    //if (xTimerIsTimerActive(lock_state.timer) == pdFALSE) {
-                        ESP_LOGI(TAG,"opening command");
-                        set_motor_driver_idle();
-                        gpio_set_level(GPIO_OUTPUT_IO_1,1);
-                        xTimerStart(lock_state.timer,portMAX_DELAY);
-                     //   lock_state.status=LOCK_STATUS_OPEN;
+                        case COMMAND_CLOSE_MOTOR:
+                                lock_state.speed=lock_state.speed+20;
+                                if(lock_state.speed>100){
+                                    lock_drive_idle();
+                                //Then update state
+                                    lock_state.status=LOCK_STATUS_CLOSED;
+                                //reset speed
+                                    lock_state.speed=0;
+                                    
+                                    break;
+                                }
+
+                                lock_drive(lock_state.current_direction,lock_state.speed);
+                                xTimerStart(lock_state.timer,portMAX_DELAY);
+                                break;
                         
-                     //Timer is running
-                    //}
-                    lock_state.status=LOCK_STATUS_OPEN;
-                    break;
-
-            case COMMAND_IDLE_MOTOR:
-
-                    /*If timer is already running, means a previous
-                        open command hasnt completed, so override it
-                    */
-                    if(lock_state.status==LOCK_STATUS_CLOSED){
-                        set_motor_driver_idle();
-                        lock_state.status=LOCK_STATUS_CLOSED_IDLE;
-                        xTimerStop(lock_state.timer,portMAX_DELAY);
-                    }
-                    else if(lock_state.status==LOCK_STATUS_OPEN){
-                        set_motor_driver_idle();
-                        lock_state.status=LOCK_STATUS_OPENED_IDLE;
-                    }
-
-                    else if(lock_state.status==LOCK_STATUS_OPENED_IDLE){
-                        //Stop the timer
-                        xTimerStop(lock_state.timer,portMAX_DELAY);
-                        //Start fresh with the closing
-                        lock_state.status=LOCK_STATUS_CLOSING;
-                        ESP_LOGI(TAG,"closing back");
-                        set_motor_close();
-                        //lock_state.status=LOCK_STATUS_OPENDED_IDLE;
+                        default:
+                            //Ignore other commands. Other commmand is close which is already going on
+                            break;
                     }
                     break;
-            default:
+                    
+
+                case LOCK_STATUS_OPENING:
+                    switch (command){
+                            case COMMAND_CLOSE_MOTOR:
+                                ESP_LOGI(TAG,"closing command");
+                                //Set idle first
+                                    lock_drive_idle();
+                                    //Then update state
+                                    lock_state.status=LOCK_STATUS_CLOSING;
+                                    //reset speed
+                                    lock_state.speed=0;
+                                    lock_state.current_direction=LOCK_DIRECTION_REVERSE;
+                                    lock_state.current_command=COMMAND_CLOSE_MOTOR;
+                                    xTimerStart(lock_state.timer,portMAX_DELAY);
+                            break;
+
+                            case COMMAND_OPEN_MOTOR:
+                                    lock_state.speed=lock_state.speed+10;
+                                    if(lock_state.speed>100){
+                                        lock_drive_idle();
+                                    //Then update state
+                                        lock_state.status=LOCK_STATUS_OPENED;
+                                    //reset speed
+                                        lock_state.speed=0;
+
+                                        break;
+                                    }
+
+                                    lock_drive(lock_state.current_direction,lock_state.speed);
+                                    xTimerStart(lock_state.timer,portMAX_DELAY);
+                                    break;
+
+                            default:
+                                //Ignore other commands. Other commmand is close which is already going on
+                                break;
+                        }
+                        break;
+                                    //reset speed
+
+                case LOCK_STATUS_OPENED:
+                case LOCK_STATUS_CLOSED:
+                    ESP_LOGI(TAG,"init state");
+                    switch (command){
+                        case COMMAND_OPEN_MOTOR:
+                            ESP_LOGI(TAG,"opening command");
+                            lock_state.current_direction=LOCK_DIRECTION_FORWARD;
+                            lock_state.current_command=COMMAND_OPEN_MOTOR;
+                            lock_state.speed=10;
+                            lock_drive(lock_state.current_direction,lock_state.speed);
+                            lock_state.status=LOCK_STATUS_OPENING;
+                            xTimerStart(lock_state.timer,portMAX_DELAY);
+                            break;
+
+                        case COMMAND_CLOSE_MOTOR:
+                            ESP_LOGI(TAG,"closing command");
+                            lock_state.current_direction=LOCK_DIRECTION_REVERSE;
+                            lock_state.current_command=COMMAND_CLOSE_MOTOR;
+                            lock_state.speed=10;
+                            lock_drive(lock_state.current_direction,lock_state.speed);
+                            lock_state.status=LOCK_STATUS_CLOSING;
+                            xTimerStart(lock_state.timer,portMAX_DELAY);
+                            break;
+
+                        default:
+                            //Ignore other commands. Other commmand is close which is already going on
+                            break;
+                    }
                     break;
 
+                        
+                                    
+            
+                default:
+                        break;
             }
         }
     }
@@ -232,8 +299,8 @@ lock_system_lock_interface_t* linear_lock_create(linear_lock_config_t* config){
 
     lock_state.timer = xTimerCreate(
         "lock_timer",
-        pdMS_TO_TICKS(lock_state.unlock_hold_duration),
-        pdTRUE,  // Auto-reload
+        pdMS_TO_TICKS(200),
+        pdFALSE,  // Auto-reload
         NULL,
         lock_timer_callback_handler
     );
@@ -248,8 +315,10 @@ lock_system_lock_interface_t* linear_lock_create(linear_lock_config_t* config){
     lock_state.interface.get_lock_status=get_lock_status;
 
     //Set idle on init
-    set_motor_driver_idle();
+    //set_motor_driver_idle();
 
+    uint8_t gpio_nums[2]={GPIO_OUTPUT_IO_0,GPIO_OUTPUT_IO_1};    
+    lock_drive_init(gpio_nums,2);
     return &lock_state.interface;
 
 }
