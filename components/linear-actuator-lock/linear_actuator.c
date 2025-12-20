@@ -60,6 +60,7 @@ static struct{
     motor_command_t current_command;    //only to be modified inside the task
     lock_direction_t current_direction; //only to be modified inside the task
     uint8_t speed;      //0-100 speed value, only to be modified inside the task
+    int speed_increment;   //Value added to speed, only to be modified inside the task
 }lock_state={0};
 
 //static motor_command_t motor_command={0};
@@ -140,10 +141,11 @@ lock_system_lock_status_t get_lock_status(){
 static void lock_task(void* args){
 
     motor_command_t command;
+    //int speed_increment; //value added to speed
     while(1){
 
         if(xQueueReceive(lock_state.command_queue,&command,portMAX_DELAY)==pdTRUE){
-            ESP_LOGI(TAG,"lock state %d",lock_state.status);
+            ESP_LOGI(TAG,"lock speed %d",lock_state.speed);
             switch (lock_state.status){
 
                 case LOCK_STATUS_CLOSING:
@@ -156,21 +158,25 @@ static void lock_task(void* args){
                                 //Then update state
                                 lock_state.status=LOCK_STATUS_OPENING;
                                 //reset speed
-                                lock_state.speed=0;
+                                lock_state.speed=20;
+                                lock_state.speed_increment=20;
                                 lock_state.current_direction=LOCK_DIRECTION_FORWARD;
                                 lock_state.current_command=COMMAND_OPEN_MOTOR;
                                 xTimerStart(lock_state.timer,portMAX_DELAY);
                         break;
 
                         case COMMAND_CLOSE_MOTOR:
-                                lock_state.speed=lock_state.speed+20;
-                                if(lock_state.speed>100){
+                                lock_state.speed=lock_state.speed+lock_state.speed_increment;
+                                if(lock_state.speed>50){
+                                    lock_state.speed_increment=-20;
+                                }
+                                else if(lock_state.speed<=0){
                                     lock_drive_idle();
-                                //Then update state
+                                    //Then update state
                                     lock_state.status=LOCK_STATUS_CLOSED;
-                                //reset speed
-                                    lock_state.speed=0;
-                                    
+                                    //reset speed
+                                    lock_state.speed=20;
+
                                     break;
                                 }
 
@@ -194,23 +200,28 @@ static void lock_task(void* args){
                                     //Then update state
                                     lock_state.status=LOCK_STATUS_CLOSING;
                                     //reset speed
-                                    lock_state.speed=0;
+                                    lock_state.speed=20;
+                                    lock_state.speed_increment=20;
                                     lock_state.current_direction=LOCK_DIRECTION_REVERSE;
                                     lock_state.current_command=COMMAND_CLOSE_MOTOR;
                                     xTimerStart(lock_state.timer,portMAX_DELAY);
                             break;
 
                             case COMMAND_OPEN_MOTOR:
-                                    lock_state.speed=lock_state.speed+10;
-                                    if(lock_state.speed>100){
+                                    lock_state.speed=lock_state.speed+lock_state.speed_increment;
+                                    if(lock_state.speed>50){
+                                        lock_state.speed_increment=-20;
+                                    }
+                                    else if(lock_state.speed<=0){
                                         lock_drive_idle();
-                                    //Then update state
+                                        //Then update state
                                         lock_state.status=LOCK_STATUS_OPENED;
-                                    //reset speed
-                                        lock_state.speed=0;
+                                        //reset speed
+                                        lock_state.speed=20;
 
                                         break;
                                     }
+
 
                                     lock_drive(lock_state.current_direction,lock_state.speed);
                                     xTimerStart(lock_state.timer,portMAX_DELAY);
@@ -231,7 +242,8 @@ static void lock_task(void* args){
                             ESP_LOGI(TAG,"opening command");
                             lock_state.current_direction=LOCK_DIRECTION_FORWARD;
                             lock_state.current_command=COMMAND_OPEN_MOTOR;
-                            lock_state.speed=10;
+                            lock_state.speed=20;
+                            lock_state.speed_increment=20;
                             lock_drive(lock_state.current_direction,lock_state.speed);
                             lock_state.status=LOCK_STATUS_OPENING;
                             xTimerStart(lock_state.timer,portMAX_DELAY);
@@ -241,7 +253,8 @@ static void lock_task(void* args){
                             ESP_LOGI(TAG,"closing command");
                             lock_state.current_direction=LOCK_DIRECTION_REVERSE;
                             lock_state.current_command=COMMAND_CLOSE_MOTOR;
-                            lock_state.speed=10;
+                            lock_state.speed=20;
+                            lock_state.speed_increment=20;
                             lock_drive(lock_state.current_direction,lock_state.speed);
                             lock_state.status=LOCK_STATUS_CLOSING;
                             xTimerStart(lock_state.timer,portMAX_DELAY);
@@ -299,7 +312,7 @@ lock_system_lock_interface_t* linear_lock_create(linear_lock_config_t* config){
 
     lock_state.timer = xTimerCreate(
         "lock_timer",
-        pdMS_TO_TICKS(200),
+        pdMS_TO_TICKS(100),
         pdFALSE,  // Auto-reload
         NULL,
         lock_timer_callback_handler
