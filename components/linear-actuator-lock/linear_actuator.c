@@ -210,9 +210,12 @@ static void lock_task(void* args){
                             case COMMAND_OPEN_MOTOR:
                                     lock_state.speed=lock_state.speed+lock_state.speed_increment;
                                     if(lock_state.speed>50){
-                                        lock_state.speed_increment=-20;
+                                        
+                                        lock_state.speed_increment=-10;
                                     }
+                                    
                                     else if(lock_state.speed<=0){
+
                                         lock_drive_idle();
                                         //Then update state
                                         lock_state.status=LOCK_STATUS_OPENED;
@@ -220,6 +223,10 @@ static void lock_task(void* args){
                                         lock_state.speed=20;
 
                                         break;
+                                    }
+                                    else if(lock_state.speed<=10){
+                                        //hold the lock , other wise it returns to close position bcz of lever pull
+                                        vTaskDelay(pdMS_TO_TICKS(lock_state.unlock_hold_duration));
                                     }
 
 
