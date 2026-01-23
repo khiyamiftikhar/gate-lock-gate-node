@@ -230,7 +230,7 @@ void app_main(void)
 
     //This is redndant and needs to be optimized. discovery component has the same innterface
     
-    linear_lock_config_t linear_lock_config={.unlock_hold_duration=2000,    //ms
+    linear_lock_config_t linear_lock_config={.unlock_hold_duration=5000,    //ms
             
     };
     lock_system_lock_interface_t* lock=linear_lock_create(&linear_lock_config);
