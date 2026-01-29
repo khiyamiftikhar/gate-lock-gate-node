@@ -24,8 +24,8 @@
 #include "gui_interface.h"
 #include "gui_op.h"
 #include "lcd_device.h"
-
-
+#include "http_server.h"
+#include "ota_service.h"
 
 
 
@@ -260,6 +260,17 @@ void app_main(void)
     uint32_t current_time_ms = (xTaskGetTickCount() * 1000) / configTICK_RATE_HZ;
     uint32_t previous_time=current_time_ms;
     //This while 1 will run at boot until channel is found
+
+    http_server_config_t server_config={0};
+
+    server_config.max_connections=2;
+    server_config.max_uris=8;
+    server_config.port=80;
+
+    ota_service_init();
+    http_server_init(&server_config);
+
+
     while(1){
         current_time_ms = (xTaskGetTickCount() * 1000) / configTICK_RATE_HZ;
         uint32_t total_devices_found=0;
