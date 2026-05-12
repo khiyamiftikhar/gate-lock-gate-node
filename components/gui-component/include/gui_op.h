@@ -17,6 +17,7 @@
 
 esp_err_t gui_op_init();
 gui_interface_t* gui_op_get_interface();
+void gui_op_set_dummy_interface();
 
 
 

@@ -102,6 +102,8 @@ static void gui_op_task(){
 }
 
 
+
+
 esp_err_t gui_inform(gui_event_t event, gui_event_data_t *evt_data)
 {
     gui_op_info_t op_info = {0};
@@ -121,6 +123,21 @@ esp_err_t gui_inform(gui_event_t event, gui_event_data_t *evt_data)
     return (ret == pdTRUE) ? ESP_OK : ESP_FAIL;
 }
 
+
+
+
+esp_err_t gui_inform_dummy(gui_event_t event, gui_event_data_t *evt_data){
+    //do nothing
+    return ESP_OK;
+}
+
+
+//if lcd init fails  then this will be used
+void gui_op_set_dummy_interface(){
+
+    gui_op.interface.gui_inform=gui_inform_dummy;
+
+}
 esp_err_t gui_op_init(){
 
 
@@ -130,8 +147,12 @@ esp_err_t gui_op_init(){
     BaseType_t  ret=xTaskCreate(gui_op_task, "lvgl_notify", 4096, NULL, 5, &gui_op.gui_op_task);
     ESP_ERROR_CHECK(ret!=pdTRUE);
 
-    gui_op.interface.gui_inform=gui_inform;
-    gui_op.init=true;
+    
+    //if already not init to dummy. 
+    if(gui_op.interface.gui_inform==NULL){
+        gui_op.interface.gui_inform=gui_inform;
+        gui_op.init=true;
+    }
 
     return ESP_OK;
 

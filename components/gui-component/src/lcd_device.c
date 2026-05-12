@@ -15,6 +15,7 @@
 #include "ui_boot.h"
 #include "ui_worker.h"
 #include "lcd_device.h"
+#include "gui_op.h"
 
 static const char* TAG="gui";
 
@@ -104,14 +105,27 @@ esp_err_t lcd_init(){
     panel_config.vendor_config = &ssd1306_config;
 #endif
     ESP_LOGI(TAG, "Install SSD1306 panel driver");
-    ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(io_handle, &panel_config, &panel_handle));
+    if(esp_lcd_new_panel_ssd1306(io_handle, &panel_config, &panel_handle)!=ESP_OK){
+        gui_op_set_dummy_interface();
+
+        ESP_LOGE(TAG,"Failed to install ssd1306 driver");
+        return ESP_FAIL;
+    }
 #elif CONFIG_LCD_CONTROLLER_SH1107
     ESP_LOGI(TAG, "Install SH1107 panel driver");
     ESP_ERROR_CHECK(esp_lcd_new_panel_sh1107(io_handle, &panel_config, &panel_handle));
 #endif
 
-    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
-    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    if(esp_lcd_panel_reset(panel_handle)!=ESP_OK){
+        gui_op_set_dummy_interface();
+        ESP_LOGE(TAG,"Failed to reset panel");
+        return ESP_FAIL;
+    }
+    if(esp_lcd_panel_init(panel_handle)!=ESP_OK){
+        gui_op_set_dummy_interface();
+        ESP_LOGE(TAG,"Failed to init panel");
+        return ESP_FAIL;
+    }
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
 #if CONFIG_LCD_CONTROLLER_SH1107
