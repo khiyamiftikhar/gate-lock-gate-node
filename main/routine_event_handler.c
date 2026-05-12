@@ -165,6 +165,12 @@ static void routine_discovery_events_handler (void *handler_arg,
             else{
                 ESP_LOGI(TAG,"its over %d",channel);
 
+                //This is the problematic channel
+                //So now home node will not work but home client node will work only
+                //Which directly connects to the softAP of the gatenode
+                if(channel==13)
+                    channel=1;
+
                 delegate_post(delegated_to_task_restart_wifi_apsta,(void*)&channel,sizeof(channel));
                 gui_interface->gui_inform(SYSTEM_BOOT_DONE,NULL);
                                 
