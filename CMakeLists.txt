@@ -2,7 +2,8 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
+include(version.cmake)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-set(PROJECT_VER "0.1.4")
+#set(PROJECT_VER "0.1.4")
 project(gate-node)
 
