@@ -609,6 +609,22 @@ static esp_err_t ota_js_handler(httpd_req_t* req){
 }
 
 
+static esp_err_t gate_open_handler(httpd_req_t* req){
+        
+    
+    HTTP_SERVER_post_event(HTTP_SERVER_EVENT_GATE_OPEN_COMMAND,NULL,0);         
+
+    esp_err_t ret = httpd_resp_set_status(req, "200 OK");
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    
+    
+    return ret;
+}
+
+
 
 
 
@@ -710,8 +726,18 @@ esp_err_t http_server_init(http_server_config_t* config){
     };
     httpd_register_uri_handler(http_server.server_handle, &ota_js_uri);
 
+    httpd_uri_t gate_open_uri = {
+        .uri      = "/gate_open",
+        .method   = HTTP_GET,
+        .handler  = gate_open_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(http_server.server_handle, &gate_open_uri);
+
+
 
     
+
     //These below are for actions such as login,logout and upload fimrware files
 
     httpd_uri_t login_uri = {
@@ -760,6 +786,8 @@ esp_err_t http_server_init(http_server_config_t* config){
     HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRASFER_FAILED,NULL,NULL);
     //On successfull EOF (0 data recevied in last chunk)
     HTTP_SERVER_register_event(HTTP_SERVER_EVENT_FILE_TRANSFER_COMPLETE,NULL,NULL);
+    
+    HTTP_SERVER_register_event(HTTP_SERVER_EVENT_GATE_OPEN_COMMAND,NULL,NULL);
     return ESP_OK;
 
     

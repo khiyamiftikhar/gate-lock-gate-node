@@ -188,6 +188,7 @@ static void routine_http_server_events_handler (void *handler_arg,
     //a makeshift workaround to scan all the channels one by one
     static uint8_t channel=0;
     http_chunk_event_data_t* evt_data=(http_chunk_event_data_t*)event_data;
+    lock_system_lock_interface_t* lock_interface=lock_system_get_interface();
                                 
     //The data nis send only on one event, otherwise it is NULL
     char* buf=NULL;
@@ -223,6 +224,15 @@ static void routine_http_server_events_handler (void *handler_arg,
                ota_service_data_event(OTA_EVENT_DATA_COMPLETION_EVENT,NULL,0);
             
             break;
+
+        case HTTP_SERVER_EVENT_GATE_OPEN_COMMAND:
+                //Inform the gui to show gate open status
+                lock_interface->set_lock_open();
+                //Since the procedure involves deiniting and initing espnow and has vtaskdelay, 
+                //so delegate to a task instead of blocking the event handler
+                
+            
+             break;
         default:
             break;
 
